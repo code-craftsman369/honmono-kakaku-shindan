@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>本物価格診断</title>
+<style>
+  :root{
+    --bg:#f7f4ee; --card:#ffffff; --ink:#2c2620; --sub:#6b6156;
+    --accent:#8a6d3b; --accent-deep:#5f4a26; --line:#e6ddd0;
+    --good:#4c7a4c; --warn:#b5652f;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; font-family:"Hiragino Sans","Yu Gothic",sans-serif;
+    background:var(--bg); color:var(--ink); line-height:1.7;
+    padding:24px 16px 80px;
+  }
+  .wrap{max-width:900px; margin:0 auto;}
+  header{text-align:center; margin-bottom:28px;}
+  header h1{font-size:26px; margin:0 0 6px; letter-spacing:.02em;}
+  header p{color:var(--sub); font-size:14px; margin:0;}
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:14px;
+    padding:22px 24px; margin-bottom:20px; box-shadow:0 1px 3px rgba(0,0,0,.03);
+  }
+  .card h2{
+    font-size:16px; margin:0 0 16px; padding-bottom:10px;
+    border-bottom:2px solid var(--accent); color:var(--accent-deep);
+  }
+  .row{display:flex; gap:14px; flex-wrap:wrap; margin-bottom:12px;}
+  .field{flex:1; min-width:180px;}
+  .field label{display:block; font-size:13px; color:var(--sub); margin-bottom:4px;}
+  input[type=text], input[type=number], select, textarea{
+    width:100%; padding:9px 10px; border:1px solid var(--line); border-radius:8px;
+    font-size:14px; font-family:inherit; background:#fdfcfa;
+  }
+  textarea{resize:vertical; min-height:56px;}
+  .hint{font-size:12px; color:var(--sub); margin-top:2px;}
+  #processList{margin-bottom:10px;}
+  .process-row{
+    display:flex; gap:10px; align-items:center; margin-bottom:8px;
+  }
+  .process-row input[type=text]{flex:2;}
+  .process-row input[type=number]{flex:1;}
+  .process-row button{
+    flex:0 0 auto; background:none; border:none; color:var(--warn);
+    cursor:pointer; font-size:18px; padding:0 6px;
+  }
+  .btn{
+    display:inline-block; padding:8px 16px; border-radius:8px; border:1px solid var(--accent);
+    background:#fff; color:var(--accent-deep); cursor:pointer; font-size:13px;
+  }
+  .btn:hover{background:#f2e9d8;}
+  .btn-primary{
+    display:block; width:100%; padding:14px; margin-top:6px; border:none; border-radius:10px;
+    background:var(--accent-deep); color:#fff; font-size:16px; cursor:pointer;
+  }
+  .btn-primary:hover{background:#4a3a1e;}
+  .checks{display:flex; flex-wrap:wrap; gap:10px 20px;}
+  .checks label{font-size:14px; display:flex; align-items:center; gap:6px;}
+  #result{display:none;}
+  .price-box{
+    display:flex; gap:14px; flex-wrap:wrap; margin-bottom:16px;
+  }
+  .price-tile{
+    flex:1; min-width:150px; background:#faf6ec; border:1px solid var(--line);
+    border-radius:10px; padding:14px 16px; text-align:center;
+  }
+  .price-tile .label{font-size:12px; color:var(--sub);}
+  .price-tile .value{font-size:22px; font-weight:700; color:var(--accent-deep); margin-top:4px;}
+  table.breakdown{width:100%; border-collapse:collapse; font-size:14px; margin-bottom:10px;}
+  table.breakdown td{padding:6px 4px; border-bottom:1px solid var(--line);}
+  table.breakdown td:last-child{text-align:right; font-variant-numeric:tabular-nums;}
+  .wage-compare{font-size:14px; margin-top:8px;}
+  .wage-compare .row2{display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px dashed var(--line);}
+  .story{
+    white-space:pre-wrap; font-size:14.5px; background:#fffef9; border:1px solid var(--line);
+    border-radius:10px; padding:18px 20px; line-height:1.9;
+  }
+  .copy-btn{margin-top:10px;}
+  .market-note{font-size:13px; color:var(--sub); margin-top:6px;}
+  footer{text-align:center; color:var(--sub); font-size:12px; margin-top:30px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>本物価格診断</h1>
+    <p>手間・希少性・リスクから、価格とその根拠となる説明文を導き出します</p>
+  </header>
+
+  <div class="card">
+    <h2>1. 商品の基本情報</h2>
+    <div class="row">
+      <div class="field">
+        <label>商品名</label>
+        <input type="text" id="productName" placeholder="例：自然栽培米／手前味噌／へしこ／干し野菜 など">
+      </div>
+      <div class="field">
+        <label>販売単位</label>
+        <input type="text" id="unit" placeholder="例：1kg、1本、1瓶(300g)">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>2. 一回の収穫・仕込みで、販売単位が何個できるか</h2>
+    <div class="row">
+      <div class="field">
+        <label>できる数量（販売単位換算）</label>
+        <input type="number" id="batchYield" placeholder="例：30（1kgパック×30個できるなら30）" min="0.01" step="0.01">
+      </div>
+    </div>
+    <p class="hint">米なら「今シーズンの収穫全体」、味噌・へしこなら「一回の仕込みロット全体」で考えてください。次の工程時間・材料費は、この数量ぶん全体の合計を入力します。</p>
+  </div>
+
+  <div class="card">
+    <h2>3. 手間（上の数量ぶん全体でかかる作業工程）</h2>
+    <div id="processList"></div>
+    <button class="btn" id="addProcess" type="button">＋ 工程を追加</button>
+    <p class="hint">工程ごとに「全体でかかった時間」を入力してください（例：仕込み、天日干し、田植え、収穫、選別、加工など）。販売単位1個あたりの時間は自動計算されます。</p>
+  </div>
+
+  <div class="card">
+    <h2>4. コストと希望時給</h2>
+    <div class="row">
+      <div class="field">
+        <label>上の数量ぶん全体でかかった材料・資材費（円）</label>
+        <input type="number" id="materialCost" placeholder="0" min="0">
+      </div>
+      <div class="field">
+        <label>希望する時給（円/時間）</label>
+        <input type="number" id="hourlyWage" placeholder="例：1500" min="0">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>5. 希少性・リスク</h2>
+    <div class="row">
+      <div class="field">
+        <label>生産量の希少性（一般的な作り方・大量生産品と比べて）</label>
+        <select id="rarity">
+          <option value="0">同程度〜やや少ない</option>
+          <option value="0.15">一般的な量の50〜80%程度</option>
+          <option value="0.35">一般的な量の50%未満（かなり少ない）</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>不作・失敗リスク</label>
+        <select id="risk">
+          <option value="0.1">低い</option>
+          <option value="0.2" selected>中くらい</option>
+          <option value="0.35">高い（気候・発酵・熟成など不確実性が大きい）</option>
+        </select>
+      </div>
+    </div>
+    <div class="field" style="margin-top:6px;">
+      <label>エビデンス・裏付け（当てはまるものを選択）</label>
+      <div class="checks">
+        <label><input type="checkbox" class="certBox" value="有機JAS等の認証を取得している"> 有機JAS等の認証</label>
+        <label><input type="checkbox" class="certBox" value="製法・工程を公開している"> 製法・工程の公開</label>
+        <label><input type="checkbox" class="certBox" value="自家採種・自家培養など独自の種や菌を継続している"> 独自の種・菌を継続</label>
+        <label><input type="checkbox" class="certBox" value="複数年にわたり同じ土地・方法で作り続けている"> 継続年数の実績</label>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>6. 比較・想い（任意）</h2>
+    <div class="row">
+      <div class="field">
+        <label>比較対象の市場価格（円/単位）</label>
+        <input type="number" id="marketPrice" placeholder="例：慣行栽培品や近い商品の価格" min="0">
+      </div>
+      <div class="field">
+        <label>この作り方を続けている年数</label>
+        <input type="number" id="years" placeholder="例：5" min="0">
+      </div>
+    </div>
+    <div class="field">
+      <label>この商品ならではの、一番伝えたい価値（味・体験・想いなど）</label>
+      <textarea id="passion" placeholder="例：本当に美味しいお米は、噛むほどに甘みが広がる"></textarea>
+    </div>
+  </div>
+
+  <button class="btn-primary" id="calcBtn" type="button">価格を診断する</button>
+
+  <div id="result">
+    <div class="card">
+      <h2>診断結果：価格レンジ</h2>
+      <div class="price-box">
+        <div class="price-tile">
+          <div class="label">原価（赤字にならない下限）</div>
+          <div class="value" id="basePriceOut">-</div>
+        </div>
+        <div class="price-tile">
+          <div class="label">適正価格（下限）</div>
+          <div class="value" id="lowerPriceOut">-</div>
+        </div>
+        <div class="price-tile">
+          <div class="label">適正価格（上限の目安）</div>
+          <div class="value" id="upperPriceOut">-</div>
+        </div>
+      </div>
+      <table class="breakdown" id="breakdownTable"></table>
+      <div class="wage-compare" id="wageCompare"></div>
+      <div class="market-note" id="marketNote"></div>
+    </div>
+
+    <div class="card">
+      <h2>診断結果：価格の物語（そのままPOP・SNSに使えます）</h2>
+      <div class="story" id="storyOut"></div>
+      <button class="btn copy-btn" id="copyBtn" type="button">この文章をコピー</button>
+    </div>
+  </div>
+
+  <footer>本物価格診断 — 4R+5次元思考ベースの原価逆算プランナー</footer>
+</div>
+
+<script>
+const processList = document.getElementById('processList');
+
+function addProcessRow(name = '', hours = '') {
+  const row = document.createElement('div');
+  row.className = 'process-row';
+  row.innerHTML = `
+    <input type="text" class="procName" placeholder="工程名（例：仕込み、天日干し、収穫など）" value="${name}">
+    <input type="number" class="procHours" placeholder="全体の時間(h)" min="0" step="0.1" value="${hours}">
+    <button type="button" title="削除">×</button>
+  `;
+  row.querySelector('button').addEventListener('click', () => row.remove());
+  processList.appendChild(row);
+}
+document.getElementById('addProcess').addEventListener('click', () => addProcessRow());
+// 初期1行（空欄。商品によって工程がまったく異なるため、サンプル値は入れない）
+addProcessRow('', '');
+
+function yen(n) {
+  return '¥' + Math.round(n).toLocaleString('ja-JP');
+}
+
+document.getElementById('calcBtn').addEventListener('click', () => {
+  const productName = document.getElementById('productName').value.trim() || 'この商品';
+  const unit = document.getElementById('unit').value.trim() || '1単位';
+
+  const procRows = [...processList.querySelectorAll('.process-row')];
+  const processes = procRows.map(r => ({
+    name: r.querySelector('.procName').value.trim(),
+    hours: parseFloat(r.querySelector('.procHours').value) || 0
+  })).filter(p => p.name && p.hours > 0);
+
+  const batchYield = parseFloat(document.getElementById('batchYield').value) || 1;
+  const totalHoursBatch = processes.reduce((s, p) => s + p.hours, 0);
+  const totalHours = totalHoursBatch / batchYield; // 販売単位1個あたりの時間
+  const materialCostBatch = parseFloat(document.getElementById('materialCost').value) || 0;
+  const materialCost = materialCostBatch / batchYield; // 販売単位1個あたりの材料費
+  const hourlyWage = parseFloat(document.getElementById('hourlyWage').value) || 0;
+
+  const rarity = parseFloat(document.getElementById('rarity').value);
+  const risk = parseFloat(document.getElementById('risk').value);
+  const certs = [...document.querySelectorAll('.certBox:checked')].map(c => c.value);
+  const certBonus = certs.length * 0.05;
+
+  const marketPrice = parseFloat(document.getElementById('marketPrice').value) || 0;
+  const years = parseFloat(document.getElementById('years').value) || 0;
+  const passion = document.getElementById('passion').value.trim();
+
+  const laborCost = totalHours * hourlyWage;
+  const baseCost = laborCost + materialCost;
+  const marginFactor = rarity + risk + certBonus;
+  const lowerPrice = baseCost * (1 + marginFactor);
+  const upperPrice = lowerPrice * 1.35;
+
+  // 出力：価格タイル
+  document.getElementById('basePriceOut').textContent = yen(baseCost);
+  document.getElementById('lowerPriceOut').textContent = yen(lowerPrice);
+  document.getElementById('upperPriceOut').textContent = yen(upperPrice);
+
+  // 内訳テーブル
+  const table = document.getElementById('breakdownTable');
+  table.innerHTML = `
+    <tr><td>販売単位1個あたりの手間（全体${totalHoursBatch.toFixed(1)}時間 ÷ ${batchYield}個）</td><td>${totalHours.toFixed(2)}時間</td></tr>
+    <tr><td>労務費（${totalHours.toFixed(2)}時間 × ${yen(hourlyWage)}）</td><td>${yen(laborCost)}</td></tr>
+    <tr><td>材料・資材費（全体${yen(materialCostBatch)} ÷ ${batchYield}個）</td><td>${yen(materialCost)}</td></tr>
+    <tr><td>原価合計（販売単位1個あたり）</td><td>${yen(baseCost)}</td></tr>
+    <tr><td>上乗せ率（希少性${(rarity*100).toFixed(0)}% + リスク${(risk*100).toFixed(0)}% + 実績${(certBonus*100).toFixed(0)}%）</td><td>${(marginFactor*100).toFixed(0)}%</td></tr>
+  `;
+
+  // 実質時給比較
+  const wageAt = (price) => totalHours > 0 ? (price - materialCost) / totalHours : 0;
+  let wageHtml = '<div class="row2"><span>この価格で売った場合の「実質時給」</span><span></span></div>';
+  wageHtml += `<div class="row2"><span>適正価格（下限）で売った場合</span><span>${yen(wageAt(lowerPrice))}/時間</span></div>`;
+  wageHtml += `<div class="row2"><span>適正価格（上限）で売った場合</span><span>${yen(wageAt(upperPrice))}/時間</span></div>`;
+  if (marketPrice > 0) {
+    wageHtml += `<div class="row2"><span>比較対象の市場価格で売った場合</span><span>${yen(wageAt(marketPrice))}/時間</span></div>`;
+  }
+  document.getElementById('wageCompare').innerHTML = wageHtml;
+
+  let marketNote = '';
+  if (marketPrice > 0) {
+    const diff = ((lowerPrice - marketPrice) / marketPrice * 100);
+    if (diff > 200) {
+      marketNote = `⚠ 市場価格 ${yen(marketPrice)} の3倍を超えています。「一回の収穫・仕込みでできる数量」や工程の時間が、実際より少なく（または多く）入力されていないか見直してみてください。`;
+    } else if (diff > 0) {
+      marketNote = `市場価格 ${yen(marketPrice)} と比べて、適正価格（下限）は約${diff.toFixed(0)}%高くなります。この差が「手間・希少性・リスク」の価値です。`;
+    } else {
+      marketNote = `市場価格 ${yen(marketPrice)} より適正価格（下限）の方が低く、価格に伸びしろがある可能性があります。`;
+    }
+  }
+  document.getElementById('marketNote').textContent = marketNote;
+
+  // 物語文章生成（ルールベース）
+  const story = generateStory({
+    productName, unit, processes, batchYield, totalHoursBatch, totalHours, hourlyWage, materialCost,
+    baseCost, lowerPrice, upperPrice, rarity, risk, certs, marketPrice, years, passion
+  });
+  document.getElementById('storyOut').textContent = story;
+
+  document.getElementById('result').style.display = 'block';
+  document.getElementById('result').scrollIntoView({behavior:'smooth'});
+});
+
+function generateStory(d) {
+  const lines = [];
+
+  // 縦：具体（工程の手間）
+  lines.push('■ この価格の内側にあるもの');
+  if (d.processes.length > 0) {
+    const procText = d.processes.map(p => `「${p.name}」に${p.hours}時間`).join('、');
+    lines.push(`${d.productName}は、一回で${d.unit}換算${d.batchYield}個ぶんを作るのに、${procText}――合計${d.totalHoursBatch.toFixed(1)}時間の手間がかかっています。${d.unit}1つあたりに直すと約${d.totalHours.toFixed(2)}時間。これは機械や効率だけでは置き換えられない、人の手による時間です。`);
+  } else {
+    lines.push(`${d.productName}（${d.unit}）には、目には見えない多くの手間がかけられています。`);
+  }
+  lines.push('');
+
+  // 横：比較
+  lines.push('■ 他のものとの違い');
+  if (d.marketPrice > 0) {
+    lines.push(`一般的な同種の商品が${yen(d.marketPrice)}程度である一方、この商品は栽培方法・手間のかけ方が異なります。安さで比較される商品ではなく、「同じカテゴリだが別のもの」として価値を伝える必要があります。`);
+  } else {
+    lines.push('慣行栽培や大量生産の商品と並べて安さで比較されると、この商品の価値は正しく伝わりません。比べるべきは価格ではなく、かけている手間と背景です。');
+  }
+  lines.push('');
+
+  // 高さ：リスク・逆説
+  lines.push('■ もし安売りしてしまうと');
+  const riskText = d.risk >= 0.35 ? '天候や病害の影響を受けやすく、収穫が不安定になるリスクを常に抱えています。' :
+                    d.risk >= 0.2 ? '一定の不作リスクを抱えながら育てています。' :
+                    '比較的安定していますが、それでも自然相手のリスクはゼロではありません。';
+  lines.push(`${riskText}この価格を下回って売ってしまうと、次の作付けへの投資や、続けていくための余力がなくなってしまいます。安すぎる価格は、結果的に「この本物の作り方」自体を続けられなくする最大のリスクです。`);
+  lines.push('');
+
+  // 時間：時間軸
+  lines.push('■ この価格が支えているもの');
+  if (d.years > 0) {
+    lines.push(`${d.years}年間、この作り方を続けてきました。この価格は、これまで積み重ねてきた土づくりや経験と、これから先も同じやり方を続けていくための投資でもあります。`);
+  } else {
+    lines.push('この価格は今日だけの値段ではなく、これからもこのやり方を続けていくための土台になります。安すぎる価格は、未来への投資を削ることと同じです。');
+  }
+  lines.push('');
+
+  // 直感：腑に落ちる部分
+  lines.push('■ 値段では語れないこと');
+  if (d.passion) {
+    lines.push(`${d.passion}――これは、原価計算には表れない部分です。実際に食べた（使った）人にしかわからない価値ですが、この価格の中には確かにその体験も含まれています。`);
+  } else {
+    lines.push('この商品には、数字だけでは説明しきれない「食べてみて初めてわかる」価値があります。その体験こそが、この価格の一番の根拠かもしれません。');
+  }
+  lines.push('');
+
+  // まとめ
+  lines.push('■ まとめ');
+  let certLine = d.certs.length > 0 ? `また、${d.certs.join('、')}という裏付けもあります。` : '';
+  lines.push(`以上の理由から、${d.productName}の適正価格は ${yen(d.lowerPrice)}〜${yen(d.upperPrice)}（${d.unit}あたり）が目安です。${certLine}この価格は「高い」のではなく、本物の手間と希少性、そして続けていくための投資に見合った、根拠のある価格です。`);
+
+  return lines.join('\n');
+}
+
+document.getElementById('copyBtn').addEventListener('click', () => {
+  const text = document.getElementById('storyOut').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('copyBtn');
+    const original = btn.textContent;
+    btn.textContent = 'コピーしました！';
+    setTimeout(() => btn.textContent = original, 1500);
+  });
+});
+</script>
+</body>
+</html>
